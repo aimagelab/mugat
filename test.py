@@ -47,7 +47,7 @@ def test(args):
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=args.batch_size,
-        num_workers=6,
+        num_workers=2,
         pin_memory=True,
         shuffle=args.shuffle,
         collate_fn=NougatDataPLModule.ignore_none_collate,

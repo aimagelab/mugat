@@ -42,6 +42,8 @@ def read_metadata(data: Dict) -> List[List[Dict]]:
     # pdffigures2 meta data
     if "pdffigures" in data and data["pdffigures"]:
         for item in data["pdffigures"]:
+            if "page" not in item:
+                continue
             p = item.pop("page", None)
             if p is None or p >= N:
                 continue
@@ -133,6 +135,9 @@ def create_index(args):
                 index.append(res)
             except TimeoutError:
                 logger.info("%s timed out", fname)
+            except AttributeError as err:
+                logger.info("%s weirded out", fname)
+                logger.info(err)
 
         with args.out.open("w", encoding="utf-8") as f:
             for item in index:

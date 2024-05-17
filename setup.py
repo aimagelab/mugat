@@ -47,7 +47,7 @@ setup(
         "timm==0.5.4",
         "orjson",
         "opencv-python-headless",
-        "datasets[vision]",
+        "datasets[vision]==2.14.3",
         "lightning>=2.0.0,<2022",
         "nltk",
         "python-Levenshtein",

@@ -8,7 +8,7 @@ import os
 import subprocess
 import logging
 
-PDFFIGURES2_JAR_PATH = os.environ.get("PDFFIGURES_PATH", None)
+PDFFIGURES2_JAR_PATH = os.environ.get("PDFFIGURES_PATH", "/work/tesi_czaccagnino/nougat/pdffigures2.jar")
 logger = logging.getLogger()
 if PDFFIGURES2_JAR_PATH is None:
     logger.warning(

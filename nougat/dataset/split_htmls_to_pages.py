@@ -75,6 +75,7 @@ def process_paper(
         if doc is None:
             return
         out, fig = format_document(doc, keep_refs=True)
+        print(out)
 
         if args.markdown:
             md_out = args.markdown / (fname + ".mmd")
@@ -90,9 +91,11 @@ def process_paper(
         split = split_markdown(
             out, pdf_file, figure_info=figure_info, doc_fig=fig, min_score=0.9
         )
+        
         if split is None:
             return
         pages, meta = split
+        print(pages)
         num_recognized_pages = sum([len(p) > 0 for p in pages])
         if all([len(p) == 0 for p in pages]):
             return

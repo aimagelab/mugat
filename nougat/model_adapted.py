@@ -7,6 +7,7 @@ Copyright (c) Meta Platforms, Inc. and affiliates.
 import logging
 import math
 import os
+import adapter
 from typing import List, Optional, Union
 from collections import defaultdict
 from pathlib import Path
@@ -511,6 +512,9 @@ class NougatModel(PreTrainedModel):
             embed_dim=self.config.embed_dim,
             num_heads=self.config.num_heads,
         )
+        
+        self.adapter = adapter.PerceiverAdapter()
+
         self.decoder = BARTDecoder(
             max_position_embeddings=self.config.max_position_embeddings,
             decoder_layer=self.config.decoder_layer,
@@ -550,6 +554,8 @@ class NougatModel(PreTrainedModel):
         self,
         image: Image.Image = None,
         image_tensors: Optional[torch.Tensor] = None,
+        prev_image_tensors: Optional[torch.Tensor] = None,
+        next_image_tensors: Optional[torch.Tensor] = None,
         return_attentions: bool = False,
         early_stopping: bool = True,
     ):
@@ -581,9 +587,30 @@ class NougatModel(PreTrainedModel):
         logging.warn("running encoder")
         last_hidden_state = self.encoder(image_tensors)
 
+        prev_image_tensors = prev_image_tensors.to(self.device)
+        logging.warn("running encoder prev")
+        last_hidden_state_prev = self.encoder(prev_image_tensors)
+
+        next_image_tensors = next_image_tensors.to(self.device)
+        logging.warn("running encoder next")
+        last_hidden_state_next = self.encoder(next_image_tensors)
+
+        # to manage to run on 8GB VRAM
+        # last_hidden_state_next=last_hidden_state
+
         logging.warn("ENCODER OUTPUTS:")
         logging.warn(last_hidden_state.shape)
         
+        adapter_outs = self.adapter(
+            torch.cat(
+                (last_hidden_state_prev, last_hidden_state, last_hidden_state_next),
+                dim=1
+            )
+        ) 
+
+        logging.warn("ADAPTER OUTPUTS:")
+        logging.warn(adapter_outs.shape)
+
         encoder_outputs = ModelOutput(
             last_hidden_state=last_hidden_state, attentions=None
         )

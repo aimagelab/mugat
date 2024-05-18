@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 
 class PerceiverLayer(nn.Module):
-    def __init__(self, d_model=1024, num_heads=1, hidden_size=2048, seq_length=4096, extra_tokens=2):
+    # default sequence length is 588, we multiply by three (we encode three pages by default) to make it 1764
+    def __init__(self, d_model=1024, num_heads=1, hidden_size=2048, seq_length=1764, extra_tokens=2):
         super().__init__()
 
         self.q_projection = nn.Linear(d_model, d_model)
@@ -38,8 +39,11 @@ class PerceiverAdapter(nn.Module):
     def __init__(self, d_model=1024, num_heads=1, num_layers=2, extra_tokens=2):
         super().__init__()
 
+        
+        self.transformer = nn.ModuleList(
+            [PerceiverLayer(d_model, num_heads) for i in range(num_layers)]
+        )
         self.queries = nn.Parameter(torch.zeros(1, extra_tokens, d_model))
-        self.transformer = [PerceiverLayer(d_model, num_heads) for i in range(num_layers)]
 
     def forward(self, x):
         y = self.queries

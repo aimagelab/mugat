@@ -50,6 +50,8 @@ class PerceiverAdapter(nn.Module):
         y = self.queries
         
 
+        # this is because we want every token of each page to have the token embeddings for that page
+        x+=self.page_embeddings.repeat_interleave(self.intra_page_embeddings.shape[1], dim=1)
 
 
         # this is because we want all three pages to have the same token embeddings intra-page

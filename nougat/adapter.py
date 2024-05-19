@@ -36,9 +36,10 @@ class PerceiverLayer(nn.Module):
 
 
 class PerceiverAdapter(nn.Module):
-    def __init__(self, d_model=1024, num_heads=1, num_layers=2, extra_tokens=2):
+    def __init__(self, d_model=1024, num_heads=1, num_layers=2, extra_tokens=2, seq_length=1764, pages=3):
         super().__init__()
-
+        self.page_embeddings = nn.Parameter(torch.randn(1, pages, d_model))
+        self.intra_page_embeddings = nn.Parameter(torch.randn(1, seq_length//3, d_model))
         
         self.transformer = nn.ModuleList(
             [PerceiverLayer(d_model, num_heads) for i in range(num_layers)]
@@ -47,6 +48,15 @@ class PerceiverAdapter(nn.Module):
 
     def forward(self, x):
         y = self.queries
+        
+
+
+
+        # this is because we want all three pages to have the same token embeddings intra-page
+        # so we repeat the token embeddings for each page (second dimension of the page embedding
+        # tensor is the page count, as we can see in the init function)
+        x+=self.intra_page_embeddings.repeat(1, self.page_embeddings.shape[1], 1)
+
         for layer in self.transformer:
             y = layer(y, x)
 

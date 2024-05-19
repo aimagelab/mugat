@@ -611,6 +611,10 @@ class NougatModel(PreTrainedModel):
         logging.warn("ADAPTER OUTPUTS:")
         logging.warn(adapter_outs.shape)
 
+        last_hidden_state = torch.cat(
+            (last_hidden_state, adapter_outs), dim=1
+        )
+
         encoder_outputs = ModelOutput(
             last_hidden_state=last_hidden_state, attentions=None
         )

@@ -46,18 +46,16 @@ class PerceiverAdapter(nn.Module):
         )
         self.queries = nn.Parameter(torch.zeros(1, extra_tokens, d_model))
 
-    def forward(self, x):
-        y = self.queries
-        
-
+    def forward(self, x):        
         # this is because we want every token of each page to have the token embeddings for that page
         x+=self.page_embeddings.repeat_interleave(self.intra_page_embeddings.shape[1], dim=1)
-
 
         # this is because we want all three pages to have the same token embeddings intra-page
         # so we repeat the token embeddings for each page (second dimension of the page embedding
         # tensor is the page count, as we can see in the init function)
         x+=self.intra_page_embeddings.repeat(1, self.page_embeddings.shape[1], 1)
+        
+        y = self.queries
 
         for layer in self.transformer:
             y = layer(y, x)

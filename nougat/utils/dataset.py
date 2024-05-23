@@ -147,8 +147,10 @@ class SciPDFDataset(Dataset):
         split: str = "train",
         root_name="",
         template="%s",
+        prev_and_next = False
     ) -> None:
         super().__init__()
+        self.prev_and_next = prev_and_next
         self.path_to_index = Path(path_to_index)
         self.root_name = root_name
         self.path_to_root = self.path_to_index.parent
@@ -189,7 +191,8 @@ class SciPDFDataset(Dataset):
                 line,
             )
             return self.empty_sample
-        img_path: Path = self.path_to_root / self.root_name / data.pop("image")
+        img_name = data.pop("image")
+        img_path: Path = self.path_to_root / self.root_name / img_name
         if not img_path.exists():
             logging.info("Sample %s could not be found.", img_path)
             return self.empty_sample
@@ -198,7 +201,31 @@ class SciPDFDataset(Dataset):
         except UnidentifiedImageError:
             logging.info("Image %s could not be opened.", img_path)
             return self.empty_sample
-        return {"image": img, "ground_truth": data.pop("markdown"), "meta": data}
+        
+        if self.prev_and_next:
+            prev_image, next_image = self.find_prev_and_next(img_name)
+
+        return {"image": img, "prev": prev_image, "next": next_image, "ground_truth": data.pop("markdown"), "meta": data}
+    
+    def find_prev_and_next(self, img_name):
+        n = int(img_name.split('/')[1].split('.')[0])
+        prefix = img_name.split('/')[0]
+        next_name: Path = self.path_to_root / self.root_name / "{}/{:02}.png".format(prefix, n+1)
+        previous_name: Path = self.path_to_root / self.root_name / "{}/{:02}.png".format(prefix, n-1)
+
+        try:
+            next_img = Image.open(next_name)
+        except UnidentifiedImageError:
+            logging.info("Image %s (to be used as next) could not be opened.", img_path)
+            next_img = self.empty_sample
+        
+        try:
+            prev_img = Image.open(previous_name)
+        except UnidentifiedImageError:
+            logging.info("Image %s (to be used as prev) could not be opened.", img_path)
+            prev_img = self.empty_sample
+
+        return prev_img, next_img
 
     def __iter__(self):
         for i in range(self.dataset_length):
@@ -218,6 +245,7 @@ class NougatDataset(Dataset):
         max_length: int,
         split: str = "train",
         root_name: str = "arxiv",
+        prev_and_next = False
     ):
         super().__init__()
         self.nougat_model = nougat_model
@@ -227,7 +255,7 @@ class NougatDataset(Dataset):
         # TODO improve naming conventions
         template = "%s"
         self.dataset = SciPDFDataset(
-            dataset_path, split=self.split, template=template, root_name=root_name
+            dataset_path, split=self.split, template=template, root_name=root_name, prev_and_next=prev_and_next
         )
         self.dataset_length = len(self.dataset)
 
@@ -254,6 +282,21 @@ class NougatDataset(Dataset):
                 sample["image"], random_padding=self.split == "train"
             )
 
+        if sample is None or sample["image"] is None or prod(sample["image"].size) == 0:
+            next_image_tensor = None
+        else:
+            next_image_tensor = self.nougat_model.encoder.prepare_input(
+                sample["next"], random_padding=self.split == "train"
+            )
+
+        if sample is None or sample["image"] is None or prod(sample["image"].size) == 0:
+            prev_image_tensor = None
+        else:
+            prev_image_tensor = self.nougat_model.encoder.prepare_input(
+                sample["prev"], random_padding=self.split == "train"
+            )
+
+
         tokenizer_out = self.nougat_model.decoder.tokenizer(
             sample["ground_truth"],
             max_length=self.max_length,
@@ -277,4 +320,4 @@ class NougatDataset(Dataset):
                     input_ids[pos] = token
                 except ValueError:
                     break
-        return input_tensor, input_ids, attention_mask
+        return input_tensor, next_image_tensor, prev_image_tensor, input_ids, attention_mask

@@ -525,6 +525,8 @@ class NougatModel(PreTrainedModel):
     def forward(
         self,
         image_tensors: torch.Tensor,
+        prev_image_tensors: Optional[torch.Tensor],
+        next_image_tensors: Optional[torch.Tensor],
         decoder_input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
     ):
@@ -538,11 +540,25 @@ class NougatModel(PreTrainedModel):
         """
 
         encoder_outputs = self.encoder(image_tensors)
+
+        encoder_out_prev = self.encoder(prev_image_tensors)
+        encoder_out_next = self.encoder(next_image_tensors)
         
+        adapter_outs = self.adapter(
+            torch.cat(
+                (encoder_out_prev, encoder_outputs, encoder_out_next),
+                dim=1
+            )
+        )
+
+        decoder_inputs = torch.cat((encoder_outputs, adapter_outs), dim=1)
+
+        attn_mask=torch.cat(attention_mask[:, :-1], torch.ones(2))
+
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids[:, :-1].contiguous(),
-            encoder_hidden_states=encoder_outputs,
-            attention_mask=attention_mask[:, :-1],
+            encoder_hidden_states=decoder_inputs,
+            attention_mask=attn_mask
             labels=decoder_input_ids[:, 1:].contiguous(),
         )
         return decoder_outputs
@@ -606,7 +622,7 @@ class NougatModel(PreTrainedModel):
                 (last_hidden_state_prev, last_hidden_state, last_hidden_state_next),
                 dim=1
             )
-        ) 
+        )
 
         logging.warn("ADAPTER OUTPUTS:")
         logging.warn(adapter_outs.shape)

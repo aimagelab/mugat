@@ -58,7 +58,7 @@ class NougatModelPLModule(pl.LightningModule):
             )
 
     def training_step(self, batch, batch_idx):
-        image_tensors, decoder_input_ids, attention_masks = list(), list(), list()
+        image_tensors, prev_image_tensors, next_image_tensors, decoder_input_ids, attention_masks = list(), list(), list()
         if batch is None:
             return
         for batch_data in batch:
@@ -70,7 +70,13 @@ class NougatModelPLModule(pl.LightningModule):
         image_tensors = torch.cat(image_tensors)
         decoder_input_ids = torch.cat(decoder_input_ids)
         attention_masks = torch.cat(attention_masks)
-        loss = self.model(image_tensors, decoder_input_ids, attention_masks)[0]
+        loss = self.model(
+            image_tensors,
+            prev_image_tensors,
+            next_image_tensors,
+            decoder_input_ids,
+            attention_masks
+        )[0]
         if loss is not None:
             self.log_dict({"train/loss": loss}, sync_dist=True)
         return loss
@@ -78,7 +84,7 @@ class NougatModelPLModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx, dataset_idx=0):
         if batch is None:
             return
-        image_tensors, decoder_input_ids, _ = batch
+        image_tensors, prev_image_tensors, next_image_tensors, decoder_input_ids, _ = batch
         if image_tensors is None:
             return
         markdown = pad_sequence(
@@ -87,6 +93,8 @@ class NougatModelPLModule(pl.LightningModule):
         )
         preds = self.model.inference(
             image_tensors=image_tensors,
+            prev_image_tensors=prev_image_tensors,
+            next_image_tensors=next_image_tensors,
             return_attentions=False,
         )["predictions"]
         gts = self.model.decoder.tokenizer.batch_decode(

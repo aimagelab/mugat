@@ -58,19 +58,24 @@ class NougatModelPLModule(pl.LightningModule):
             )
 
     def training_step(self, batch, batch_idx):
-        image_tensors, decoder_input_ids, attention_masks = list(), list(), list()
+        # input_tensor, next_image_tensor, prev_image_tensor, input_ids, attention_mask
+        image_tensors, next_image_tensors, prev_image_tensors, decoder_input_ids, attention_masks = list(), list(), list(), list(), list()
         if batch is None:
             return
         for batch_data in batch:
             if batch_data is None or batch_data[0] is None:
                 continue
             image_tensors.append(batch_data[0])
-            decoder_input_ids.append(batch_data[1])
-            attention_masks.append(batch_data[2])
+            next_image_tensors.append(batch_data[1])
+            prev_image_tensors.append(batch_data[2])
+            decoder_input_ids.append(batch_data[3])
+            attention_masks.append(batch_data[4])
         image_tensors = torch.cat(image_tensors)
+        prev_image_tensors = torch.cat(prev_image_tensors)
+        next_image_tensors = torch.cat(next_image_tensors)
         decoder_input_ids = torch.cat(decoder_input_ids)
         attention_masks = torch.cat(attention_masks)
-        loss = self.model(image_tensors, decoder_input_ids, attention_masks)[0]
+        loss = self.model(image_tensors, prev_image_tensors, next_image_tensors, decoder_input_ids, attention_masks)[0]
         if loss is not None:
             self.log_dict({"train/loss": loss}, sync_dist=True)
         return loss

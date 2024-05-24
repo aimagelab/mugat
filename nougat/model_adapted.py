@@ -7,7 +7,7 @@ Copyright (c) Meta Platforms, Inc. and affiliates.
 import logging
 import math
 import os
-import adapter
+import nougat.adapter as adapter
 from typing import List, Optional, Union
 from collections import defaultdict
 from pathlib import Path
@@ -558,7 +558,7 @@ class NougatModel(PreTrainedModel):
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids[:, :-1].contiguous(),
             encoder_hidden_states=decoder_inputs,
-            attention_mask=attn_mask
+            attention_mask=attn_mask,
             labels=decoder_input_ids[:, 1:].contiguous(),
         )
         return decoder_outputs

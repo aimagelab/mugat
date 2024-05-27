@@ -58,7 +58,7 @@ class NougatModelPLModule(pl.LightningModule):
             )
 
     def training_step(self, batch, batch_idx):
-        image_tensors, prev_image_tensors, next_image_tensors, decoder_input_ids, attention_masks = list(), list(), list()
+        image_tensors, prev_image_tensors, next_image_tensors, decoder_input_ids, attention_masks = list(), list(), list(), list(), list()
         if batch is None:
             return
         for batch_data in batch:

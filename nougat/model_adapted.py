@@ -540,9 +540,16 @@ class NougatModel(PreTrainedModel):
         """
 
         encoder_outputs = self.encoder(image_tensors)
-
-        encoder_out_prev = self.encoder(prev_image_tensors)
-        encoder_out_next = self.encoder(next_image_tensors)
+        
+        if prev_image_tensors.max() != 0:
+            encoder_out_prev = self.encoder(prev_image_tensors)
+        else:
+            encoder_out_prev = torch.zeros(encoder_outputs.shape, device=encoder_outputs.device)
+        
+        if next_image_tensors.max() != 0:
+            encoder_out_next = self.encoder(next_image_tensors)
+        else:
+            encoder_out_next = torch.zeros(encoder_outputs.shape, device=encoder_outputs.device)
         
         adapter_outs = self.adapter(
             torch.cat(
@@ -553,12 +560,12 @@ class NougatModel(PreTrainedModel):
 
         decoder_inputs = torch.cat((encoder_outputs, adapter_outs), dim=1)
 
-        attn_mask=torch.cat(attention_mask[:, :-1], torch.ones(2))
+ #       attn_mask=torch.cat((attention_mask[:, :-1]), device=attention_mask.device)), dim=1)
 
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids[:, :-1].contiguous(),
             encoder_hidden_states=decoder_inputs,
-            attention_mask=attn_mask,
+            attention_mask=attention_mask[:, :-1],
             labels=decoder_input_ids[:, 1:].contiguous(),
         )
         return decoder_outputs
@@ -603,13 +610,20 @@ class NougatModel(PreTrainedModel):
         logging.warn("running encoder")
         last_hidden_state = self.encoder(image_tensors)
 
-        prev_image_tensors = prev_image_tensors.to(self.device)
-        logging.warn("running encoder prev")
-        last_hidden_state_prev = self.encoder(prev_image_tensors)
 
-        next_image_tensors = next_image_tensors.to(self.device)
-        logging.warn("running encoder next")
-        last_hidden_state_next = self.encoder(next_image_tensors)
+        if prev_image_tensors.max() != 0:
+            prev_image_tensors = prev_image_tensors.to(self.device)
+            logging.warn("running encoder prev")
+            last_hidden_state_prev = self.encoder(prev_image_tensors)
+        else:
+            last_hidden_state_prev = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
+        
+        if next_image_tensors.max() != 0:
+            next_image_tensors = next_image_tensors.to(self.device)
+            logging.warn("running encoder next")
+            last_hidden_state_next = self.encoder(next_image_tensors)
+        else:
+            last_hidden_state_next = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
 
         # to manage to run on 8GB VRAM
         # last_hidden_state_next=last_hidden_state

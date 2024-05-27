@@ -17,8 +17,7 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
     Callback,
     GradientAccumulationScheduler,
-)
-from lightning.pytorch.loggers.tensorboard import TensorBoardLogger
+)    
 from lightning.pytorch.plugins import CheckpointIO
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 from lightning.pytorch.utilities import rank_zero_only
@@ -168,15 +167,7 @@ def train(config):
     grad_norm_callback = GradNormCallback()
     custom_ckpt = CustomCheckpointIO()
 
-    if not config.debug:
-        logger = Logger(config.exp_name, project="Nougat", config=dict(config))
-    else:
-        logger = TensorBoardLogger(
-            save_dir=config.result_path,
-            name=config.exp_name,
-            version=config.exp_version,
-            default_hp_metric=False,
-        )
+    logger = Logger(config.exp_name, project="Nougat", config=dict(config))
     trainer = pl.Trainer(
         num_nodes=config.get("num_nodes", 1),
         devices="auto",

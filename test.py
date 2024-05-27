@@ -56,7 +56,7 @@ def test(args):
     for idx, sample in tqdm(enumerate(dataloader), total=len(dataloader)):
         if sample is None:
             continue
-        image_tensors, decoder_input_ids, _ = sample
+        image_tensors,prev_image_tensors, next_image_tensors, decoder_input_ids, _ = sample
         if image_tensors is None:
             return
         if len(predictions) >= args.num_samples:
@@ -66,6 +66,8 @@ def test(args):
         )
         outputs = pretrained_model.inference(
             image_tensors=image_tensors,
+            prev_image_tensors=prev_image_tensors,
+            next_image_tensors=next_image_tensors,
             return_attentions=False,
         )["predictions"]
         predictions.extend(outputs)

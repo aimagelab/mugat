@@ -139,7 +139,7 @@ class SciPDFDataset(Dataset):
         empty_sample: Placeholder for empty samples.
     """
 
-    empty_sample = None
+    empty_sample = torch.zeros(1)
 
     def __init__(
         self,
@@ -147,7 +147,7 @@ class SciPDFDataset(Dataset):
         split: str = "train",
         root_name="",
         template="%s",
-        prev_and_next = False
+        prev_and_next = True
     ) -> None:
         super().__init__()
         self.prev_and_next = prev_and_next
@@ -190,20 +190,19 @@ class SciPDFDataset(Dataset):
                 str(e),
                 line,
             )
-            return self.empty_sample
+            return None
         img_name = data.pop("image")
         img_path: Path = self.path_to_root / self.root_name / img_name
         if not img_path.exists():
             logging.info("Sample %s could not be found.", img_path)
-            return self.empty_sample
+            return None
         try:
             img = Image.open(img_path)
         except UnidentifiedImageError:
             logging.info("Image %s could not be opened.", img_path)
-            return self.empty_sample
+            return None
         
-        if self.prev_and_next:
-            prev_image, next_image = self.find_prev_and_next(img_name)
+        prev_image, next_image = self.find_prev_and_next(img_name)
 
         return {"image": img, "prev": prev_image, "next": next_image, "ground_truth": data.pop("markdown"), "meta": data}
     
@@ -215,14 +214,14 @@ class SciPDFDataset(Dataset):
 
         try:
             next_img = Image.open(next_name)
-        except UnidentifiedImageError:
-            logging.info("Image %s (to be used as next) could not be opened.", img_path)
+        except:
+            logging.info("Image %s (to be used as next) could not be opened.", next_name)
             next_img = self.empty_sample
         
         try:
             prev_img = Image.open(previous_name)
-        except UnidentifiedImageError:
-            logging.info("Image %s (to be used as prev) could not be opened.", img_path)
+        except:
+            logging.info("Image %s (to be used as prev) could not be opened.", previous_name)
             prev_img = self.empty_sample
 
         return prev_img, next_img
@@ -282,15 +281,15 @@ class NougatDataset(Dataset):
                 sample["image"], random_padding=self.split == "train"
             )
 
-        if sample is None or sample["image"] is None or prod(sample["image"].size) == 0:
-            next_image_tensor = None
+        if sample is None or sample["next"] is None or (isinstance(sample["next"], torch.Tensor) and sample["next"].max() == 0) or prod(sample["image"].size) == 0:
+            next_image_tensor = torch.zeros(1)
         else:
             next_image_tensor = self.nougat_model.encoder.prepare_input(
                 sample["next"], random_padding=self.split == "train"
             )
 
-        if sample is None or sample["image"] is None or prod(sample["image"].size) == 0:
-            prev_image_tensor = None
+        if sample is None or sample["prev"] is None or (isinstance(sample["prev"], torch.Tensor) and sample["prev"].max() == 0) or prod(sample["image"].size) == 0:
+            prev_image_tensor = torch.zeros(1)
         else:
             prev_image_tensor = self.nougat_model.encoder.prepare_input(
                 sample["prev"], random_padding=self.split == "train"

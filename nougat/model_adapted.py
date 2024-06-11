@@ -512,6 +512,9 @@ class NougatModel(PreTrainedModel):
             embed_dim=self.config.embed_dim,
             num_heads=self.config.num_heads,
         )
+
+        for param in self.encoder.model.parameters():
+            param.requires_grad = False 
         
         self.adapter = adapter.PerceiverAdapter()
 

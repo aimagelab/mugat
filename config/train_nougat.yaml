@@ -1,6 +1,6 @@
 resume_from_checkpoint_path: null
 result_path: "result"
-model_path: null
+model_path: "/homes/czaccagnino/.cache/torch/hub/nougat-0.1.0-base/"
 dataset_paths: ["/work/tesi_czaccagnino/arxiv-dataset/split/train.jsonl"]
 tokenizer: "dataset/tokenizer.json"
 exp_name: "nougat"

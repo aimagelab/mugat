@@ -64,6 +64,7 @@ def test(args):
         ground_truth = pretrained_model.decoder.tokenizer.batch_decode(
             decoder_input_ids, skip_special_tokens=True
         )
+        pretrained_model = pretrained_model.float()
         outputs = pretrained_model.inference(
             image_tensors=image_tensors,
             prev_image_tensors=prev_image_tensors,

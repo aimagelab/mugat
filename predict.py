@@ -153,6 +153,8 @@ def main():
         datasets.append(dataset)
     if len(datasets) == 0:
         return
+    
+    print(f"bs: {args.batchsize}")
     dataloader = torch.utils.data.DataLoader(
         ConcatDataset(datasets),
         batch_size=args.batchsize,
@@ -164,7 +166,10 @@ def main():
     file_index = 0
     page_num = 0
     for i, (sample, is_last_page) in enumerate(tqdm(dataloader)):
+        prev_page = dataloader[i-1] if i != 0 else torch.zeros(1)
+        next_page = dataloader[i+1] if not is_last_page else torch.zeros(1)
         model_output = model.inference(
+            prev_image_tensors=prev_page, next_image_tensors=next_page,
             image_tensors=sample, early_stopping=args.skipping
         )
         # check if model output is faulty

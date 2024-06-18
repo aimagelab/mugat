@@ -27,8 +27,9 @@ from transformers import (
     StoppingCriteria,
     StoppingCriteriaList,
     MBartConfig,
-    MBartForCausalLM,
+    # MBartForCausalLM,
 )
+from .modeling_mbart import MBartForCausalLM
 from transformers.file_utils import ModelOutput
 from transformers.modeling_utils import PretrainedConfig, PreTrainedModel
 from nougat.postprocessing import postprocess
@@ -240,6 +241,10 @@ class BARTDecoder(nn.Module):
                 d_model=hidden_dimension,
             )
         )
+
+        self.model.gradient_checkpointing_enable()
+        self.model.gradient_checkpointing = True
+        
         self.model.config.is_encoder_decoder = True  # to get cross-attention
         self.model.model.decoder.embed_tokens.padding_idx = self.tokenizer.pad_token_id
         self.model.prepare_inputs_for_generation = self.prepare_inputs_for_inference
@@ -517,6 +522,7 @@ class NougatModel(PreTrainedModel):
             param.requires_grad = False 
         
         self.adapter = adapter.PerceiverAdapter()
+        self.adapter.train()
 
         self.decoder = BARTDecoder(
             max_position_embeddings=self.config.max_position_embeddings,
@@ -524,6 +530,7 @@ class NougatModel(PreTrainedModel):
             name_or_path=self.config.name_or_path,
             hidden_dimension=self.config.hidden_dimension,
         )
+        self.decoder.train()
 
     def forward(
         self,

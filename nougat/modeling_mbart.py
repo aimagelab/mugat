@@ -1306,8 +1306,7 @@ class MBartDecoder(MBartPreTrainedModel):
 
             past_key_value = past_key_values[idx] if past_key_values is not None else None
 
-            # TODO: it was self.gradient_checkpointing and self.training
-            if self.gradient_checkpointing:
+            if self.gradient_checkpointing and self.training:
                 layer_outputs = self._gradient_checkpointing_func(
                     decoder_layer.__call__,
                     hidden_states,

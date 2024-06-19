@@ -74,6 +74,10 @@ class NougatModelPLModule(pl.LightningModule):
         next_image_tensors = torch.cat(next_image_tensors)
         decoder_input_ids = torch.cat(decoder_input_ids)
         attention_masks = torch.cat(attention_masks)
+
+        self.model.decoder.gradient_checkpointing = True
+        self.model.decoder.training = True
+        
         loss = self.model(
             image_tensors,
             prev_image_tensors,
@@ -95,6 +99,8 @@ class NougatModelPLModule(pl.LightningModule):
             decoder_input_ids,
             batch_first=True,
         )
+        self.model.gradient_checkpointing = False
+        self.model.training = False
         preds = self.model.inference(
             image_tensors=image_tensors,
             prev_image_tensors=prev_image_tensors,
@@ -205,7 +211,7 @@ class NougatModelPLModule(pl.LightningModule):
             / self.config.exp_name
             / self.config.exp_version
         )
-        self.model.save_pretrained(save_path)
+        self.model.save_pretrained(save_path, safe_serialization=False)
         self.model.decoder.tokenizer.save_pretrained(save_path)
 
 

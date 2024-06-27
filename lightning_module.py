@@ -57,6 +57,11 @@ class NougatModelPLModule(pl.LightningModule):
                 )
             )
 
+    def log_dict2(self, dict, *args, **kwargs):
+        print("LOG EVALUATION")
+        self.log_dict(dict, *args, **kwargs)
+        print(dict)
+
     def training_step(self, batch, batch_idx):
         image_tensors, prev_image_tensors, next_image_tensors, decoder_input_ids, attention_masks = list(), list(), list(), list(), list()
         if batch is None:
@@ -122,7 +127,7 @@ class NougatModelPLModule(pl.LightningModule):
             self.validation_step_outputs is not None
             and len(self.validation_step_outputs) >= 1
         ):
-            self.log_dict(self.validation_step_outputs[0], sync_dist=True)
+            self.log_dict2(self.validation_step_outputs[0], sync_dist=True)
             self.validation_step_outputs.clear()
 
     def configure_optimizers(self):
@@ -158,7 +163,13 @@ class NougatModelPLModule(pl.LightningModule):
             )
 
         assert max_iter is not None
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.config.lr)
+        optimizer = torch.optim.AdamW(
+            [
+                {'params': self.model.decoder.parameters()},
+                {'params': self.model.adapter.parameters(), 'lr': self.config.adapter_lr}
+            ],
+            lr=self.config.lr
+        )
         scheduler = {
             "scheduler": self.exponential_scheduler(
                 optimizer,

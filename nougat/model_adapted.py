@@ -523,6 +523,7 @@ class NougatModel(PreTrainedModel):
         
         self.adapter = adapter.PerceiverAdapter()
         self.adapter.train()
+        self.adapter = self.adapter.to(torch.float)
 
         self.decoder = BARTDecoder(
             max_position_embeddings=self.config.max_position_embeddings,
@@ -617,29 +618,23 @@ class NougatModel(PreTrainedModel):
             image_tensors = image_tensors.to(next(self.parameters()).dtype)
 
         image_tensors = image_tensors.to(self.device)
-        logging.warn("running encoder")
         last_hidden_state = self.encoder(image_tensors)
 
 
         if prev_image_tensors.max() != 0:
             prev_image_tensors = prev_image_tensors.to(self.device)
-            logging.warn("running encoder prev")
             last_hidden_state_prev = self.encoder(prev_image_tensors)
         else:
             last_hidden_state_prev = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
         
         if next_image_tensors.max() != 0:
             next_image_tensors = next_image_tensors.to(self.device)
-            logging.warn("running encoder next")
             last_hidden_state_next = self.encoder(next_image_tensors)
         else:
             last_hidden_state_next = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
 
         # to manage to run on 8GB VRAM
         # last_hidden_state_next=last_hidden_state
-
-        logging.warn("ENCODER OUTPUTS:")
-        logging.warn(last_hidden_state.shape)
         
         adapter_outs = self.adapter(
             torch.cat(
@@ -647,9 +642,6 @@ class NougatModel(PreTrainedModel):
                 dim=1
             )
         )
-
-        logging.warn("ADAPTER OUTPUTS:")
-        logging.warn(adapter_outs.shape)
 
         last_hidden_state = torch.cat(
             (last_hidden_state, adapter_outs), dim=1

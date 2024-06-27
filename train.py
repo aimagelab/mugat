@@ -17,6 +17,7 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
     Callback,
     GradientAccumulationScheduler,
+    EarlyStopping
 )    
 from lightning.pytorch.plugins import CheckpointIO
 from lightning.pytorch.plugins.environments import SLURMEnvironment
@@ -162,6 +163,7 @@ def train(config):
 
     checkpoint_callback = ModelCheckpoint(
         save_last=True,
+        save_top_k=-1,
         dirpath=Path(config.result_path) / config.exp_name / config.exp_version,
     )
     grad_norm_callback = GradNormCallback()
@@ -189,9 +191,13 @@ def train(config):
             grad_norm_callback,
             checkpoint_callback,
             GradientAccumulationScheduler({0: config.accumulate_grad_batches}),
+            # EarlyStopping(monitor="val/edit_dist", mode="min")
         ],
     )
-
+    trainer.validate(
+        model_module,
+        data_module,
+    )
     trainer.fit(
         model_module,
         data_module,

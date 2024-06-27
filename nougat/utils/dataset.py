@@ -215,13 +215,13 @@ class SciPDFDataset(Dataset):
         try:
             next_img = Image.open(next_name)
         except:
-            logging.info("Image %s (to be used as next) could not be opened.", next_name)
+            # logging.info("Image %s (to be used as next) could not be opened.", next_name)
             next_img = self.empty_sample
         
         try:
             prev_img = Image.open(previous_name)
         except:
-            logging.info("Image %s (to be used as prev) could not be opened.", previous_name)
+            # logging.info("Image %s (to be used as prev) could not be opened.", previous_name)
             prev_img = self.empty_sample
 
         return prev_img, next_img

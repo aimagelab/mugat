@@ -127,7 +127,8 @@ class NougatModelPLModule(pl.LightningModule):
             self.validation_step_outputs is not None
             and len(self.validation_step_outputs) >= 1
         ):
-            self.log_dict2(self.validation_step_outputs[0], sync_dist=True)
+            for el in self.validation_step_outputs:
+                self.log_dict2(el, sync_dist=True)
             self.validation_step_outputs.clear()
 
     def configure_optimizers(self):

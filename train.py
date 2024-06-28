@@ -194,10 +194,6 @@ def train(config):
             # EarlyStopping(monitor="val/edit_dist", mode="min")
         ],
     )
-    trainer.validate(
-        model_module,
-        data_module,
-    )
     trainer.fit(
         model_module,
         data_module,

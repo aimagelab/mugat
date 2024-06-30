@@ -3,7 +3,7 @@ result_path: "result"
 model_path: "/homes/czaccagnino/.cache/torch/hub/nougat-0.1.0-base/"
 dataset_paths: ["/work/tesi_czaccagnino/arxiv-dataset/split/train.jsonl"]
 tokenizer: "dataset/tokenizer.json"
-exp_name: "nougat"
+exp_name: "nougat-base"
 train_batch_sizes: [1]
 num_workers: 8
 val_batch_sizes: [1]

@@ -402,6 +402,7 @@ class NougatConfig(PretrainedConfig):
         embed_dim: int = 128,
         num_heads: List[int] = [4, 8, 16, 32],
         hidden_dimension: int = 1024,
+        empty_sample="/work/tesi_czaccagnino/nougat/whitepage.pt",
         **kwargs,
     ):
         super().__init__()
@@ -419,6 +420,7 @@ class NougatConfig(PretrainedConfig):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.hidden_dimension = hidden_dimension
+        self.empty_sample = empty_sample
 
 
 class RunningVarTorch:
@@ -533,6 +535,8 @@ class NougatModel(PreTrainedModel):
         )
         self.decoder.train()
 
+        self.empty_sample = torch.load(self.config.empty_sample) if self.config.empty_sample is not None else None
+
     def forward(
         self,
         image_tensors: torch.Tensor,
@@ -555,12 +559,18 @@ class NougatModel(PreTrainedModel):
         if prev_image_tensors.max() != 0:
             encoder_out_prev = self.encoder(prev_image_tensors)
         else:
-            encoder_out_prev = torch.zeros(encoder_outputs.shape, device=encoder_outputs.device)
+            if self.empty_sample is not None:
+                encoder_out_prev = self.empty_sample.to(encoder_outputs.device)
+            else:
+                encoder_out_prev = torch.zeros(encoder_outputs.shape, device=encoder_outputs.device)
         
         if next_image_tensors.max() != 0:
             encoder_out_next = self.encoder(next_image_tensors)
         else:
-            encoder_out_next = torch.zeros(encoder_outputs.shape, device=encoder_outputs.device)
+            if self.empty_sample is not None:
+                encoder_out_next = self.empty_sample.to(encoder_outputs.device)
+            else:
+                encoder_out_next = torch.zeros(encoder_outputs.shape, device=encoder_outputs.device)
         
         adapter_outs = self.adapter(
             torch.cat(

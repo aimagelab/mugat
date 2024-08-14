@@ -36,13 +36,14 @@ class PerceiverLayer(nn.Module):
 
 
 class PerceiverAdapter(nn.Module):
-    def __init__(self, d_model=1024, num_heads=1, num_layers=2, extra_tokens=2, seq_length=1764, pages=3):
+    def __init__(self, d_model=1024, num_heads=1, num_layers=2, extra_tokens=4, seq_length=1764, pages=3):
         super().__init__()
+        print(f"initializing adapter with {num_layers}l-{extra_tokens}t")
         self.page_embeddings = nn.Parameter(torch.randn(1, pages, d_model))
         self.intra_page_embeddings = nn.Parameter(torch.randn(1, seq_length//3, d_model))
         
         self.transformer = nn.ModuleList(
-            [PerceiverLayer(d_model, num_heads) for i in range(num_layers)]
+            [PerceiverLayer(d_model, num_heads, seq_length=seq_length, extra_tokens=extra_tokens) for i in range(num_layers)]
         )
         self.queries = nn.Parameter(torch.zeros(1, extra_tokens, d_model))
 

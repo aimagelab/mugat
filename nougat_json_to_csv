@@ -1,0 +1,56 @@
+#!/homes/czaccagnino/.conda/envs/nougat/bin/python
+from sys import argv
+import pandas as pd
+from json import loads as json_loads
+import os
+
+if len(argv) != 2:
+    print("Supply output file name")
+    exit(1)
+
+
+BASE_DIR = "/work/tesi_czaccagnino/small-custom"
+SPLIT_DIR = os.path.join(BASE_DIR, "split")
+SMALL = False
+
+def get_templates():
+    return os.listdir(SPLIT_DIR)
+
+def get_template_results(template):
+    template_dir = os.path.join(SPLIT_DIR, template)
+
+    return os.path.join(template_dir, "nougat-small.json" if SMALL else "nougat-medium.json")
+
+files_mapping = {
+   "PCN": "/home/carmine/mugat-results/context-alt-test_both.jsonl",
+   #"PC_": "/home/carmine/mugat-results/context-test_op.jsonl",
+   "_CN": "/home/carmine/mugat-results/context-alt-test_on.jsonl",
+   "_C_": "/home/carmine/mugat-results/context-alt-test_neither.jsonl"
+}
+
+# files_mapping.update({
+#     template: get_template_results(template) for template in get_templates()
+# })
+
+
+list = []
+for file in files_mapping:
+    with open(files_mapping[file]) as f:
+        string = f.read()
+        data = json_loads(string)
+        print(file)
+        list.append({
+            "Experiment": file,
+#            "Size": len(data["predictions"]),
+            "Edit distance": data["edit_dist_accuracy"],
+            "BLEU": data["bleu_accuracy"],
+            "METEOR": data["meteor_accuracy"],
+            "Precision": data["precision_accuracy"],
+            "Recall": data["recall_accuracy"],
+        })
+        f.close()
+
+    
+df = pd.DataFrame(list)
+df.to_csv(argv[1])
+

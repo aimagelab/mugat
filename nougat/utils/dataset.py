@@ -320,3 +320,83 @@ class NougatDataset(Dataset):
                 except ValueError:
                     break
         return input_tensor, next_image_tensor, prev_image_tensor, input_ids, attention_mask
+
+
+class SciPDFNameDataset(Dataset):
+    """
+    Custom dataset for scientific PDF data.
+
+    This dataset loads data from JSONL files and provides access to images, ground truth,
+    and metadata.
+
+    Args:
+        path_to_index (str): Path to the index file.
+        split (str, optional): Split of the dataset (e.g., "train", "test"). Default is "train".
+        root_name (str, optional): Root directory name. Default is an empty string.
+        template (str, optional): Template for split naming. Default is "%s".
+
+    Attributes:
+        empty_sample: Placeholder for empty samples.
+    """
+
+    empty_sample = torch.zeros(1)
+
+    def __init__(
+        self,
+        path_to_index: str,
+        split: str = "train",
+        root_name="",
+        template="%s",
+        prev_and_next = True
+    ) -> None:
+        super().__init__()
+        self.prev_and_next = prev_and_next
+        self.path_to_index = Path(path_to_index)
+        self.root_name = root_name
+        self.path_to_root = self.path_to_index.parent
+        if not split in self.path_to_index.stem:
+            pti = self.path_to_root / (template % split + ".jsonl")
+            if pti.exists():
+                self.path_to_index = pti
+            else:
+                raise ValueError(f'Dataset file for split "{split}" not found: {pti}')
+        self.dataset_file = None  # mulitprocessing
+        # load seek map
+        seek_path = self.path_to_root / (self.path_to_index.stem + ".seek.map")
+        if seek_path.exists():
+            self.seek_map = orjson.loads(seek_path.open().read())
+        else:
+            raise ValueError(
+                'No "%s" found in %s' % (seek_path.name, str(self.path_to_root))
+            )
+        self.dataset_length = len(self.seek_map)
+
+    def __len__(self) -> int:
+        return self.dataset_length
+
+    def __getitem__(self, index: int) -> Dict:
+        position = self.seek_map[index]
+        if self.dataset_file is None:
+            self.dataset_file = self.path_to_index.open()
+        self.dataset_file.seek(position)
+        line = self.dataset_file.readline()
+        try:
+            data: Dict = orjson.loads(line)
+        except Exception as e:
+            logging.info(
+                "JSONL for sample %i could not be loaded at position %i: %s\n%s",
+                index,
+                position,
+                str(e),
+                line,
+            )
+            return None
+        img_name = data.pop("image")
+        img_path: Path = self.path_to_root / self.root_name / img_name
+        # TODO:trova prev e next
+
+        return str(img_path)
+    
+    def __iter__(self):
+        for i in range(self.dataset_length):
+            yield self[i]

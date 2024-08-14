@@ -402,7 +402,9 @@ class NougatConfig(PretrainedConfig):
         embed_dim: int = 128,
         num_heads: List[int] = [4, 8, 16, 32],
         hidden_dimension: int = 1024,
-        empty_sample="/work/tesi_czaccagnino/nougat/whitepage.pt",
+        empty_sample="/home/czaccagnino/nougat/whitepage.pt",
+        adapter_layers = 2,
+        adapter_tokens = 4,
         **kwargs,
     ):
         super().__init__()
@@ -421,6 +423,8 @@ class NougatConfig(PretrainedConfig):
         self.num_heads = num_heads
         self.hidden_dimension = hidden_dimension
         self.empty_sample = empty_sample
+        self.adapter_layers = adapter_layers
+        self.adapter_tokens = adapter_tokens
 
 
 class RunningVarTorch:
@@ -523,7 +527,7 @@ class NougatModel(PreTrainedModel):
         for param in self.encoder.model.parameters():
             param.requires_grad = False 
         
-        self.adapter = adapter.PerceiverAdapter()
+        self.adapter = adapter.PerceiverAdapter(num_layers=config.adapter_layers, extra_tokens=config.adapter_tokens)
         self.adapter.train()
         self.adapter = self.adapter.to(torch.float)
 
@@ -620,7 +624,7 @@ class NougatModel(PreTrainedModel):
         if image is None and image_tensors is None:
             logging.warn("Image not found")
             return output
-
+        
         if image_tensors is None:
             image_tensors = self.encoder.prepare_input(image).unsqueeze(0)
 
@@ -630,27 +634,36 @@ class NougatModel(PreTrainedModel):
         image_tensors = image_tensors.to(self.device)
         last_hidden_state = self.encoder(image_tensors)
 
-
-        if prev_image_tensors.max() != 0:
+        # When no previous/next image is available, a tensor of zeroes
+        # will end up in prev_image_tensors and next_image_tensors
+        if torch.linalg.vector_norm(prev_image_tensors) != 0:
             prev_image_tensors = prev_image_tensors.to(self.device)
             last_hidden_state_prev = self.encoder(prev_image_tensors)
         else:
-            last_hidden_state_prev = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
+            if self.empty_sample is not None:
+                last_hidden_state_prev = self.empty_sample.to(last_hidden_state.device)
+            else:
+                last_hidden_state_prev = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
         
-        if next_image_tensors.max() != 0:
+        if torch.linalg.vector_norm(next_image_tensors) != 0:
             next_image_tensors = next_image_tensors.to(self.device)
             last_hidden_state_next = self.encoder(next_image_tensors)
         else:
-            last_hidden_state_next = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
+            if self.empty_sample is not None:
+                last_hidden_state_next = self.empty_sample.to(last_hidden_state.device)
+            else:
+                last_hidden_state_next = torch.zeros(last_hidden_state.shape, device=last_hidden_state.device)
 
         # to manage to run on 8GB VRAM
         # last_hidden_state_next=last_hidden_state
+
+        adapter_inputs = torch.cat(
+            (last_hidden_state_prev, last_hidden_state, last_hidden_state_next),
+            dim=1
+        )
         
         adapter_outs = self.adapter(
-            torch.cat(
-                (last_hidden_state_prev, last_hidden_state, last_hidden_state_next),
-                dim=1
-            )
+            adapter_inputs   
         )
 
         last_hidden_state = torch.cat(

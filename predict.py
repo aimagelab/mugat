@@ -165,9 +165,12 @@ def main():
     predictions = []
     file_index = 0
     page_num = 0
-    for i, (sample, is_last_page) in enumerate(tqdm(dataloader)):
-        prev_page = dataloader[i-1] if i != 0 else torch.zeros(1)
-        next_page = dataloader[i+1] if not is_last_page else torch.zeros(1)
+    print("gathering all pages in a list", flush=True)
+    all_pages = [page for page in tqdm(dataloader)]
+    print("done", flush=True)
+    for i, (sample, is_last_page) in enumerate(tqdm(all_pages)):
+        prev_page = all_pages[i-1] if i != 0 else torch.zeros(1)
+        next_page = all_pages[i+1] if not is_last_page else torch.zeros(1)
         model_output = model.inference(
             prev_image_tensors=prev_page, next_image_tensors=next_page,
             image_tensors=sample, early_stopping=args.skipping
@@ -190,7 +193,7 @@ def main():
                     predictions.append(f"\n\n[MISSING_PAGE_FAIL:{page_num}]\n\n")
                 else:
                     # If we end up here, it means the document page is too different from the training domain.
-                    # This can happen e.g. for cover pages.
+                    # Thais can happen e.g. for cover pages.
                     predictions.append(
                         f"\n\n[MISSING_PAGE_EMPTY:{i*args.batchsize+j+1}]\n\n"
                     )
@@ -198,18 +201,17 @@ def main():
                 if args.markdown:
                     output = markdown_compatible(output)
                 predictions.append(output)
-            if is_last_page[j]:
-                out = "".join(predictions).strip()
-                out = re.sub(r"\n{3,}", "\n\n", out).strip()
-                if args.out:
-                    out_path = args.out / Path(is_last_page[j]).with_suffix(".mmd").name
-                    out_path.parent.mkdir(parents=True, exist_ok=True)
-                    out_path.write_text(out, encoding="utf-8")
-                else:
-                    print(out, "\n\n")
-                predictions = []
-                page_num = 0
-                file_index += 1
+            out = "".join(predictions).strip()
+            out = re.sub(r"\n{3,}", "\n\n", out).strip()
+            if args.out:
+                out_path = args.out / Path(f"{i}").with_suffix(".mmd").name
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_text(out, encoding="utf-8")
+            else:
+                print(out, "\n\n")
+            predictions = []
+            out = ""
+            page_num = 0
 
 
 if __name__ == "__main__":

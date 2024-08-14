@@ -1,121 +1,102 @@
-<div align="center">
-<h1>Nougat: Neural Optical Understanding for Academic Documents</h1>
+# μgat
+Official implementation of our ECCVW paper "μgat: Improving Single-Page Document Parsing by Providing Multi-Page Context"
 
-[![Paper](https://img.shields.io/badge/Paper-arxiv.2308.13418-white)](https://arxiv.org/abs/2308.13418)
-[![GitHub](https://img.shields.io/github/license/facebookresearch/nougat)](https://github.com/facebookresearch/nougat)
-[![PyPI](https://img.shields.io/pypi/v/nougat-ocr?logo=pypi)](https://pypi.org/project/nougat-ocr)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/release/python-390/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Hugging Face Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Community%20Space-blue)](https://huggingface.co/spaces/ysharma/nougat)
+## Install Dependencies
 
-</div>
+After cloning the repository with `git clone`, `cd` into it, e.g.:
 
-This is the official repository for Nougat, the academic document PDF parser that understands LaTeX math and tables.
+`cd mugat`
 
-Project page: https://facebookresearch.github.io/nougat/
-
-## Install
-
-From pip:
+Using pip:
 ```
-pip install nougat-ocr
+pip install .
 ```
 
-From repository:
-```
-pip install git+https://github.com/facebookresearch/nougat
-```
-
-> Note, on Windows: If you want to utilize a GPU, make sure you first install the correct PyTorch version. Follow instructions [here](https://pytorch.org/get-started/locally/)
-
-There are extra dependencies if you want to call the model from an API or generate a dataset.
-Install via
-
-`pip install "nougat-ocr[api]"` or `pip install "nougat-ocr[dataset]"`
-
-### Get prediction for a PDF
-#### CLI
-
-To get predictions for a PDF run
-
-```
-$ nougat path/to/file.pdf -o output_directory
-```
-
-A path to a directory or to a file where each line is a path to a PDF can also be passed as a positional argument
-
-```
-$ nougat path/to/directory -o output_directory
-```
-
-```
-usage: nougat [-h] [--batchsize BATCHSIZE] [--checkpoint CHECKPOINT] [--model MODEL] [--out OUT]
-              [--recompute] [--markdown] [--no-skipping] pdf [pdf ...]
-
-positional arguments:
-  pdf                   PDF(s) to process.
-
-options:
-  -h, --help            show this help message and exit
-  --batchsize BATCHSIZE, -b BATCHSIZE
-                        Batch size to use.
-  --checkpoint CHECKPOINT, -c CHECKPOINT
-                        Path to checkpoint directory.
-  --model MODEL_TAG, -m MODEL_TAG
-                        Model tag to use.
-  --out OUT, -o OUT     Output directory.
-  --recompute           Recompute already computed PDF, discarding previous predictions.
-  --full-precision      Use float32 instead of bfloat16. Can speed up CPU conversion for some setups.
-  --no-markdown         Do not add postprocessing step for markdown compatibility.
-  --markdown            Add postprocessing step for markdown compatibility (default).
-  --no-skipping         Don't apply failure detection heuristic.
-  --pages PAGES, -p PAGES
-                        Provide page numbers like '1-4,7' for pages 1 through 4 and page 7. Only works for single PDFs.
-```
-
-The default model tag is `0.1.0-small`. If you want to use the base model, use `0.1.0-base`.
-```
-$ nougat path/to/file.pdf -o output_directory -m 0.1.0-base
-```
-
-In the output directory every PDF will be saved as a `.mmd` file, the lightweight markup language, mostly compatible with [Mathpix Markdown](https://github.com/Mathpix/mathpix-markdown-it) (we make use of the LaTeX tables).
-
-> Note: On some devices the failure detection heuristic is not working properly. If you experience a lot of `[MISSING_PAGE]` responses, try to run with the `--no-skipping` flag. Related: [#11](https://github.com/facebookresearch/nougat/issues/11), [#67](https://github.com/facebookresearch/nougat/issues/67)
-
-#### API
-
-With the extra dependencies you use `app.py` to start an API. Call
-
-```sh
-$ nougat_api
-```
-
-To get a prediction of a PDF file by making a POST request to http://127.0.0.1:8503/predict/. It also accepts parameters `start` and `stop` to limit the computation to select page numbers (boundaries are included).
-
-The response is a string with the markdown text of the document.
-
-```sh
-curl -X 'POST' \
-  'http://127.0.0.1:8503/predict/' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: multipart/form-data' \
-  -F 'file=@<PDFFILE.pdf>;type=application/pdf'
-```
-To use the limit the conversion to pages 1 to 5, use the start/stop parameters in the request URL: http://127.0.0.1:8503/predict/?start=1&stop=5
 
 ## Dataset
-### Generate dataset
+
+To test and train μgat you need to have a properly structured and formatted dataset. We provide scripts to generate one as effortlessly as possible. And this section provides guidance on how to use them.
+
+Before seeing that, let's look at the end result of the dataset generation process, which is what μgat needs as input:
+
+~~~
+parent-dir
+|-train.jsonl
+|-train.seek.map
+|-validation.jsonl
+|-validation.seek.map
+|-test.jsonl
+|-test.seek.map
+|-arxiv
+  |-first-paper
+  | |-01.mmd
+  | |-01.png
+  | |-02.mmd
+  | |-02.png
+  | ...
+  |-second-paper
+    |-01.mmd
+    |-01.png
+    ...
+  ...
+~~~
+
+Essentially, there is a JSONL file that specifies the list of files for each page's image and ground truth data to be used for each setting (`train`, `validation` and `test`). Each JSONL file also needs to have a seek map, which is a file that allows the training and testing scripts to more efficiently parse the JSONL file.
+
+The `arxiv` directory is where the actual images and ground truth data for each document page is located. The name of the directory can be changed in the code, `arxiv` is the default.
+
+Each directory within it is a document, and for each document there should be some matching pairs of `mmd` and `png` files, which are respectively the ground truth and the image of a page of that document.
+
+In our paper, we used two datasets for which the generation process can be automated: arXiv papers, which can be downloaded in mass and then processed (semi-)automatically, and synthetic tables, which are generated using the text within those tables, which is injected into specifically designed LaTeX and Markdown templates to generate synthetic documents consisting just of tables.
+
+You can find all of the scripts to help with that in this repository's [`dataset-generation`](dataset-generation) directory. The zero-padded starting number for directories and files is a hint of the order in which they are meant to be used. 
+
+Nonetheless, the rest of this section will explain how to use them.
+
+You can skip to the section on synthetic table generation by clicking [here](#generating-synthetic-tables).
+
+### Downloading arXiv Papers
+
+A good starting point to build a dataset are academic papers from arXiv, since both the PDF and the source LaTeX is made available, and can be downloaded in predictable (and therefore scriptable) ways.
+
+Before doing that, you need to get a list of papers published on arXiv. To do that, you can use the provided [`dataset-generation/01-arxiv/01-get-csv-from-arxiv-api.ipynb`](dataset-generation/01-arxiv/01-get-csv-from-arxiv-api.ipynb) Jupyter Notebook to query the arXiv API to get an RSS feed for recent papers. Tweak the `start` and `max_results` variables to change the range of papers, sorted from the most recent to the oldest.
+
+This way of sorting was chosen because the most recent papers (after August 2023) are certainly not part of the Nougat training set, so they can be used to test it or models based on it (like μgat).
+
+When downloading papers in multiple steps, other CSVs to use to run deduplication can be added where indicated in the notebook.
+
+After fetching the list of papers to download and saving it to a CSV, that CSV can be used as an argument to the [`dataset-generation/01-arxiv/02-download-pdfs-from-csv.py`](dataset-generation/01-arxiv/02-download-pdfs-from-csv.py) script, which will download the PDFs and compressed (`.tar.gz`) source files from the arXiv servers. They will be downloaded to the `pdf` and `tex` subdirectories within the current directory respectively. So, if you have the papers generated by the previously mentioned Jupyter Notebook in the `papers.csv` file, you can run it as:
+
+~~~
+python 02-download-pdfs-from-csv.py papers.csv
+~~~
+
+Since it is compressed, the source code needs to be extracted. To help with that, there's [`dataset-generation/01-arxiv/03-extract-tex-source.sh`](dataset-generation/01-arxiv/03-extract-tex-source.sh), which extracts all `tar.gz` archives in the directory in which it is ran.
+
+
+### LaTeXML Conversion
+
+The next step is to use [LaTeXML](https://math.nist.gov/~BMiller/LaTeXML/) to convert the LaTeX source into HTML. This is required in order to use the papers as input to test and/or train μgat (or Nougat, for that matter). The `mmd` files will be generated starting from HTML files generated by LaTeXML.
+
+You can run this step on one paper using the [`convert-one-to-xml.sh`](dataset-generation/03-common/convert-one-to-xml.sh) script we provide. You can provide a directory containing LaTeX source for a paper as an argument, as follows:
+
+In order to be able to run this step on SLURM clusters, we also provide the [`convert-slurm-pyxis.sbatch`](dataset-generation/03-common/convert-slurm-pyxis.sbatch) sbatch script that runs [a container image on Docker Hub (carminezacc/latexml-parallel) containing the Rust version of LaTeXML and GNU Parallel](https://hub.docker.com/repository/docker/carminezacc/latexml-parallel/general) using [pyxis](https://github.com/NVIDIA/pyxis). When using that script, remember to fill in the path to the downloaded data, and the path to the directory containing the aforementioned `convert-one-to-xml.sh` script, and the path to the data to the one containing the `tex` and `pdf` directories as generated by the scripts mentioned [previously](#downloading-arxiv-papers).
+
+
+### Generate the Dataset From Papers
+
+This section is based on the same section from [Nougat's README](https://github.com/facebookresearch/nougat).
 
 To generate a dataset you need 
 
-1. A directory containing the PDFs
-2. A directory containing the `.html` files (processed `.tex` files by [LaTeXML](https://math.nist.gov/~BMiller/LaTeXML/)) with the same folder structure
+1. A directory containing the PDFs (`path/to/pdf` in the example that follows).
+2. A directory containing the `.html` files (processed `.tex` files by [LaTeXML](https://math.nist.gov/~BMiller/LaTeXML/)) with the same folder structure (`path/to/html` in the example that follows).
 3. A binary file of [pdffigures2](https://github.com/allenai/pdffigures2) and a corresponding environment variable `export PDFFIGURES_PATH="/path/to/binary.jar"`
 
 Next run
 
 ```
-python -m nougat.dataset.split_htmls_to_pages --html path/html/root --pdfs path/pdf/root --out path/paired/output --figure path/pdffigures/outputs
+python -m nougat.dataset.split_htmls_to_pages --html path/to/html --pdfs path/to/pdf --out path/paired/output --figure path/pdffigures/outputs
 ```
 
 Additional arguments include
@@ -145,7 +126,7 @@ The resulting directory structure can look as follows:
 
 ```
 root/
-├── images
+├── arxiv
 ├── train.jsonl
 ├── train.seek.map
 ├── test.jsonl
@@ -157,17 +138,50 @@ root/
 Note that the `.mmd` and `.json` files in the `path/paired/output` (here `images`) are no longer required.
 This can be useful for pushing to a S3 bucket by halving the amount of files.
 
+
+## Generating Synthetic Tables
+
+One of μgat's contributions, aside from the multi-page architecture, is finetuning on synthetic documents containing tables, in order to attempt to improve results on the _Regesta Pontificum Romanorum_, which are, by and large, very long tables.
+
+Generating synthetic tables is somewhat more complex than just downloading papers from arXiv, though (but LaTeXML runs much faster and smoother on our tables since we don't use many packages, unlike many papers).
+
+We released the scripts we developed for that in [`dataset-generation/02-tables`](dataset-generation/02-tables/). They are not divided in steps in the filename because some files are actually modules used by the main scripts, so we instead explain here the role of each, starting from the simplest and most foundational ones:
+
+* [`source-text.py`](dataset-generation/02-tables/source_text.py) defines some classes that have methods to get a certain amount of words or characters. They are used when injecting text into table cells. We designed the classes to be easily replaceable in case a different text source should be used instead of text from arxiv papers. In fact, we also include an implementation for a class that fetches characters from the `generic_sentences` within the `generics_kb` HuggingFace dataset. We never used it because it: in the rest of our code we just use `ArxivSource`.
+* [`test_settings.py`](dataset-generation/02-tables/test_settings.py) defines some constants which determine the type of synthetic documents which will be generated. Two kinds of tables are generated:
+  1. **Markdown tables**, for which `md_test_settings` lists the settings when it comes to the number of words contained in each column for each row. Each element in `md_test_settings` is a different setting, and each setting is a list of rows, and for each row we have a list of numbers. Each number represents the word count for the cell in that row and in that column. In the file you'll find list comprehensions creating lists composed of duplicated three-value lists used to define the settings, since we only tested three-column tables with each column having a different word counts, but with all rows being equal to each other (not exactly the same, just equal in terms of word count for each column, since the words are sampled separately, so each row ends up being different from the other in terms of content and character count).
+  1. **LaTeX  tables**, for which we have three different features on which to define settigns, and we generate tables for all combinations of those features:
+    * `latex_test_settings_rows` which words just like `md_test_settings`, but for LaTeX tables: it specifies word count for each row and column
+    * `latex_test_settings_col_widths`: since LaTeX tables can have different widths for different columns, here we specify the width of each column for each test setting;
+    * `latex_test_settings_total_width`: since LaTeX tables don't have to take up all of the available space in the table, this is a list of the amount to multiply the page width by to get the table width. In essence, it is a list of table widths relative to the page width.
+
+  For both LaTeX and Markdown tables, all test settings are combined with all of the `templates` listed in that same `test_settings.py` file. Those templates are from [this repo](https://github.com/cab-1729/Pandoc-Themes).
+* [`write-markdown.py`](dataset-generation/02-tables/write_markdown.py) is the code that actually generates the Markdown or LaTeX code given a test setting. 
+* In [`dataset_paths.py`](dataset-generation/02-tables/dataset_paths.py) you have some constants you can use to specify the paths to the templates, and the output directory for the dataset to be generated. The two functions are used to generate the path to a single output file given those paths and the test setting.
+* [`generate_dataset.py`](dataset-generation/02-tables/generate_dataset.py) is a **script** that uses all of the aforementioned files to generate the LaTeX and Markdown tables. It also generates PDFs for them using the templates specified in the test settings.
+* [`override_good_template_in_html.py`](dataset-generation/02-tables/override_good_template_in_html.py) is a **script** and is necessary because, since LaTeXML is very finicky and prone to failure, it sometimes struggles with some templates, either failing or taking very long. The ground truth data is the same for all templates, though, so this script can be used to replace all the LaTeXML-generated HTML files (which are only used for ground truth generation) with those of a specific known-good template, for example `newsprint`.
+
+All files listed from here on are scripts specifically meant for running analysis on the impact of different table features on model performance to evaluate the optimal test settings:
+
+* [`split_dataset.py`](dataset-generation/02-tables/split_dataset.py), which splits a generated dataset into many datasets, each isolating a different feature and template, for all possible combinations.
+* [`generate_split_nougat_indices.py`](dataset-generation/02-tables/generate_split_nougat_indices.py) generates JSONL indices for each of the dataset splits generated by  the aforementioned `split_dataset.py`.
+* [`run_models.py`](dataset-generation/02-tables/run_models.py) runs two different models (the one which would be reached by `BASE_FIRST_CMD`, and the one which would be reached by `BASE_SECOND_CMD`) on all of the dataset splits.
+* [`get_tables_results.py`](dataset-generation/02-tables/get_tables_results.py) is [`nougat_json_to_csv`](nougat_json_to_csv)'s (more about it [here](#evaluation)) more specialized "parent": it was developed earlier it and is specifically meant to be used for tables to get results split by each setting, it is still there as a more specialized version of that script: it greatly simplifies analyzing performance on tables when trying to understand the impact of each table feature separately. It requires having the results
+
+
 ## Training
 
-To train or fine tune a Nougat model, run 
+To train or fine tune a μgat model, run 
 
 ```
-python train.py --config config/train_nougat.yaml
+python train.py --config path/to/config.yaml
 ```
+
+The config may contain, in addition to the usual parameters found in Nougat's config, also the `adapter_layers` and `adapter_tokens` values, which are self-explanatory values used to initialize the multi-page adapter.
 
 ## Evaluation
 
-Run 
+To generate a JSON file (at `/path/to/results`) containing detailed results (all metrics both divided by document and combined), run the following:
 
 ```
 python test.py --checkpoint path/to/checkpoint --dataset path/to/test.jsonl --save_path path/to/results.json
@@ -179,37 +193,15 @@ To get the results for the different text modalities, run
 python -m nougat.metrics path/to/results.json
 ```
 
-## FAQ
+We also provide the [`nougat-json-to-csv`](nougat-json-to-csv) Python script to help combine the results from several experiments, each in their own JSON file, into a single CSV files showing all of the results in a table. To use it, just change the `file_mapping` within the file to have as a key the name you want for the experiment, and as a value the JSON file containing the results of that experiment, and pass as an argument to the script the name of the output CSV file to create:
 
-- Why am I only getting `[MISSING_PAGE]`?
+~~~
+./nougat-json-to-csv results.csv
+~~~
 
-  Nougat was trained on scientific papers found on arXiv and PMC. Is the document you're processing similar to that?
-  What language is the document in? Nougat works best with English papers, other Latin-based languages might work. **Chinese, Russian, Japanese etc. will not work**.
-  If these requirements are fulfilled it might be because of false positives in the failure detection, when computing on CPU or older GPUs ([#11](https://github.com/facebookresearch/nougat/issues/11)). Try passing the `--no-skipping` flag for now.
 
-- Where can I download the model checkpoint from.
-
-  They are uploaded here on GitHub in the release section. You can also download them during the first execution of the program. Choose the preferred preferred model by passing `--model 0.1.0-{base,small}`
-
-## Citation
-
-```
-@misc{blecher2023nougat,
-      title={Nougat: Neural Optical Understanding for Academic Documents}, 
-      author={Lukas Blecher and Guillem Cucurull and Thomas Scialom and Robert Stojnic},
-      year={2023},
-      eprint={2308.13418},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
-}
-```
 
 ## Acknowledgments
 
-This repository builds on top of the [Donut](https://github.com/clovaai/donut/) repository.
+This repository builds on top of the [Nougat](https://github.com/facebookresearch/nougat) repository.
 
-## License
-
-Nougat codebase is licensed under MIT.
-
-Nougat model weights are licensed under CC-BY-NC.

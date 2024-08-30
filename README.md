@@ -1,5 +1,5 @@
 # μgat
-Official implementation of our ECCVW paper "μgat: Improving Single-Page Document Parsing by Providing Multi-Page Context"
+Official implementation of our ECCVW paper "[μgat: Improving Single-Page Document Parsing by Providing Multi-Page Context](https://arxiv.org/abs/2408.15646)"
 
 ## Install Dependencies
 

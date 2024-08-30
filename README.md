@@ -181,6 +181,8 @@ The config may contain, in addition to the usual parameters found in Nougat's co
 
 ## Evaluation
 
+Check out [the release page here on GitHub](https://github.com/aimagelab/mugat/releases) to get our pretrained weights.
+
 To generate a JSON file (at `/path/to/results`) containing detailed results (all metrics both divided by document and combined), run the following:
 
 ```
